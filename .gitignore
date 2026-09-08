@@ -1,0 +1,4 @@
+# Build output. Contains the compiled app and any debug traces, which log the
+# name of the paired earbuds.
+build/
+.DS_Store
