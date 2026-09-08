@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import ServiceManagement
+import WidgetKit
 
 /// The menu bar item: shows the current noise-control mode and lets you change it.
 final class StatusBarController: NSObject, BudsLinkDelegate, NSMenuDelegate {
@@ -20,7 +21,43 @@ final class StatusBarController: NSObject, BudsLinkDelegate, NSMenuDelegate {
         render()
         link.start()
         registerHotKey()
+        listenForControlCenter()
     }
+
+    // MARK: - Control Center
+
+    /// Commands arrive from the Controls extension as distributed notifications
+    /// and state goes back the same way. See `ControlBridge`.
+    private var controlObservers: [NSObjectProtocol] = []
+    private var lastPublished: ControlBridge.State?
+
+    private func listenForControlCenter() {
+        controlObservers = ControlBridge.observe(ControlBridge.allCommandNames, ControlBridge.command(from:)) { [weak self] command in
+            guard let self else { return }
+            budsLog("control center: \(command)")
+            switch command {
+            case .setMode(let mode): self.link.setMode(mode)
+            case .cycle: self.cycleMode()
+            case .query: self.publishToControlCenter(force: true)
+            }
+        }
+        publishToControlCenter()
+    }
+
+    private func publishToControlCenter(force: Bool = false) {
+        let state = ControlBridge.State(connected: link.isConnected, mode: link.status.mode)
+        guard force || state != lastPublished else { return }
+        let changed = state != lastPublished
+        lastPublished = state
+        ControlBridge.post(ControlBridge.name(for: state))
+        if changed { ControlCenter.shared.reloadAllControls() }
+    }
+
+    func applicationWillTerminate() {
+        ControlBridge.post(ControlBridge.name(for: .disconnected))
+        ControlCenter.shared.reloadAllControls()
+    }
+
 
     // MARK: - Menu
 
@@ -228,6 +265,6 @@ final class StatusBarController: NSObject, BudsLinkDelegate, NSMenuDelegate {
 
     // MARK: - BudsLinkDelegate
 
-    func linkDidChangeConnection(_ link: BudsLink) { render() }
-    func linkDidUpdateStatus(_ link: BudsLink) { render() }
+    func linkDidChangeConnection(_ link: BudsLink) { render(); publishToControlCenter() }
+    func linkDidUpdateStatus(_ link: BudsLink) { render(); publishToControlCenter() }
 }

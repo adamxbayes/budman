@@ -1,21 +1,22 @@
 #!/bin/bash
-# Builds BudsControl.app into ./build. No Xcode project required.
+# Builds BudsControl.app (menu bar app + Control Center extension) into ./build.
+#
+# The Xcode project is generated from project.yml with xcodegen when it is
+# installed (brew install xcodegen); otherwise the committed project is used.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP="build/BudsControl.app"
-rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+if command -v xcodegen >/dev/null 2>&1; then
+  xcodegen generate --quiet
+fi
 
-swiftc -O -swift-version 5 \
-  Sources/Protocol.swift Sources/BudsLink.swift Sources/SliderRow.swift Sources/StatusBar.swift Sources/main.swift \
-  -framework AppKit -framework IOBluetooth -framework Carbon \
-  -o "$APP/Contents/MacOS/BudsControl"
+xcodebuild -project BudsControl.xcodeproj \
+  -scheme BudsControl \
+  -configuration Release \
+  -derivedDataPath build/DerivedData \
+  -quiet \
+  build
 
-cp Resources/Info.plist "$APP/Contents/Info.plist"
-
-# Ad-hoc signature. macOS ties the Bluetooth permission grant to this identity,
-# so re-signing with the same (empty) identity keeps the existing grant.
-codesign --force --sign - "$APP"
-
-echo "built $APP"
+rm -rf build/BudsControl.app
+cp -R build/DerivedData/Build/Products/Release/BudsControl.app build/BudsControl.app
+echo "built build/BudsControl.app"

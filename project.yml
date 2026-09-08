@@ -1,0 +1,58 @@
+name: BudsControl
+options:
+  bundleIdPrefix: dev.local
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+settings:
+  base:
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    SWIFT_VERSION: "5.0"
+    # Ad-hoc signing so anyone can build without an Apple developer account.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    ENABLE_APP_SANDBOX: NO
+targets:
+  BudsControl:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Shared
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Buds Control
+        LSMinimumSystemVersion: "26.0"
+        LSUIElement: true
+        NSBluetoothAlwaysUsageDescription: BudsControl talks to your Galaxy Buds over Bluetooth to read their battery level and change the noise-control mode.
+    dependencies:
+      - target: BudsControlControls
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.local.budscontrol
+        PRODUCT_NAME: BudsControl
+  BudsControlControls:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Controls
+      - Shared
+    info:
+      path: Controls/Info.plist
+      properties:
+        CFBundleDisplayName: Buds Control
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Controls/BudsControlControls.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.local.budscontrol.controls
+        PRODUCT_NAME: BudsControlControls

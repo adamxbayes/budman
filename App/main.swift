@@ -6,6 +6,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusBar = StatusBarController()
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        statusBar?.applicationWillTerminate()
+    }
 }
 
 let app = NSApplication.shared

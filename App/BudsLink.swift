@@ -211,7 +211,7 @@ final class BudsLink: NSObject, IOBluetoothRFCOMMChannelDelegate {
         case .extendedStatusUpdated:
             guard let s = BudsStatus.fromExtended(msg.payload) else { return false }
             status = s
-            budsLog("status: mode=\(s.mode) L=\(s.batteryLeft)% R=\(s.batteryRight)% case=\(s.batteryCase)% voiceDetect=\(s.detectConversations)")
+            budsLog("status: mode=\(s.mode) L=\(s.batteryLeft)% (\(s.placementLeft.label)) R=\(s.batteryRight)% (\(s.placementRight.label)) case=\(s.batteryCase)% voiceDetect=\(s.detectConversations)")
             return true
         case .statusUpdated:
             status.applyStatusUpdate(msg.payload)

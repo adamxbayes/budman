@@ -2,3 +2,7 @@
 # name of the paired earbuds.
 build/
 .DS_Store
+
+# The Xcode project is committed so it builds without xcodegen; per-user state is not.
+BudsControl.xcodeproj/xcuserdata/
+BudsControl.xcodeproj/project.xcworkspace/xcuserdata/

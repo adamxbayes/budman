@@ -15,20 +15,42 @@ Built and verified against **Galaxy Buds3 Pro**, firmware `R630XXU0AYJ1`.
 - Toggles Voice detect (auto-switch to ambient when you start talking)
 - Rings the earbuds to find them
 - Global shortcut **⌥⇧A** cycles ANC → Ambient → Off
+- **Control Center controls** (macOS 26): a noise-control button plus ANC and
+  ambient toggles you can place in Control Center or directly in the menu bar
 - Reconnects on its own when the earbuds come back in range
 
 ## Install
 
-Requires macOS 13 or later and the Xcode command-line tools
-(`xcode-select --install` if `swiftc` is missing).
+Requires macOS 26 and Xcode 26 (the Control Center extension needs both; the
+command-line tools alone are not enough).
 
 ```bash
 git clone https://github.com/adamxbayes/budman.git
 cd budman
 ./build.sh
-cp -r build/BudsControl.app /Applications/
+cp -R build/BudsControl.app /Applications/
 open /Applications/BudsControl.app
 ```
+
+Run it from `/Applications` — that is what makes macOS register the Control
+Center extension. `build.sh` regenerates the Xcode project from `project.yml` if
+[xcodegen](https://github.com/yonaskolb/XcodeGen) is installed and otherwise uses
+the committed one, so xcodegen is only needed if you change the project layout.
+
+### Adding the controls to Control Center
+
+Open Control Center from the menu bar, choose **Edit Controls** at the bottom,
+and look for **Buds Control**. Three controls are offered:
+
+| Control | Does |
+|---|---|
+| Galaxy Buds noise control | Shows the current mode; press to cycle ANC → Ambient → Off |
+| Galaxy Buds noise cancelling | Toggle |
+| Galaxy Buds ambient sound | Toggle |
+
+The same editor lets you pin any of them to the menu bar itself, which is a good
+answer to a notch-crowded menu bar. The app has to be running for the controls to
+work — they show *Not connected* otherwise — so leave **Open at login** on.
 
 macOS asks for Bluetooth permission on first launch. Building it yourself is the
 point: the app is ad-hoc signed, not notarised, so a copy downloaded from
@@ -123,18 +145,44 @@ Message ids and the framing rules were cross-checked against
 the protocol across the whole Galaxy Buds range. This app shares no code with it —
 only the protocol facts — and is released under the MIT licence.
 
+### Control Center plumbing
+
+Controls run in a WidgetKit extension — a separate, sandboxed process that
+cannot use the app's Bluetooth channel. The two sides talk over distributed
+notifications in both directions, with the payload encoded in the notification
+*name* (`…setMode.1`, `…cycle`, `…query` one way; `…state.<connected>.<mode>`
+the other). Two constraints shaped that:
+
+- A sandboxed process may post distributed notifications, but macOS strips the
+  `userInfo` dictionary, and the centre only delivers names it was asked for
+  explicitly — a nil name is not a wildcard. Both vocabularies are small and
+  closed, so each side simply registers every name it understands.
+- The conventional alternative, shared app-group defaults, needs an entitlement
+  that Xcode will only sign with a provisioning profile, which would tie the build
+  to an Apple developer account. Notifications need no entitlements, so an ad-hoc
+  signature is enough and anyone can build it.
+
+When Control Center is about to draw a control it asks the app for the current
+state and waits up to 400 ms for an answer; silence means the app is not running.
+
 ## Layout
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| `Sources/Protocol.swift` | Framing, CRC, message ids, status decoding |
-| `Sources/BudsLink.swift` | Device discovery, RFCOMM channel, reconnect, commands |
-| `Sources/StatusBar.swift` | Menu bar item, menu, global shortcut |
-| `Sources/main.swift` | Application entry point |
+| `App/Protocol.swift` | Framing, CRC, message ids, status decoding |
+| `App/BudsLink.swift` | Device discovery, RFCOMM channel, reconnect, commands |
+| `App/StatusBar.swift` | Menu bar item, menu, global shortcut, Control Center listener |
+| `App/SliderRow.swift` | Slider inside a menu item |
+| `App/main.swift` | Application entry point |
+| `Controls/BudsControls.swift` | Control Center controls and their intents |
+| `Shared/NoiseMode.swift` | Mode enum, compiled into both targets |
+| `Shared/ControlBridge.swift` | App ↔ extension protocol |
+| `project.yml` | xcodegen project definition |
 
 ## Limits
 
 - Bluetooth Classic RFCOMM only — the earbuds must be paired and in range.
+- Mode changes are refused by the earbuds while they are in the case; the app shows whatever they report back.
 - Only the settings listed above are implemented. The protocol carries far more
   (equaliser, touch controls, spatial audio, firmware updates); the message ids for
   those are in `GalaxyBudsClient` if you want to extend this.
